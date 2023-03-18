@@ -8,10 +8,17 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
       POSTGRES_DB: mydb
+      POSTGRES_MAX_PREPARED_TRANSACTIONS: 100
+        #ALTER SYSTEM SET max_prepared_transactions = 100;
+        #begin transaction;
+        #delete from messages;
+        #prepare transaction 'a';
+        #COMMIT PREPARED 'a';
     ports:
       - "5432:5432"
     volumes:
       - ./schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
 
   rabbitmq:
     image: rabbitmq:3-management
