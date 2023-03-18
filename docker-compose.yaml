@@ -23,3 +23,16 @@ services:
       - "5672:5672"
       - "15672:15672"
 
+  bookkeeper:
+    image: apache/bookkeeper:4.13.0
+    environment:
+      BK_zkServers: zookeeper:2181
+    ports:
+      - "3181:3181"
+      - "8080:8080"
+
+  zookeeper:
+    image: zookeeper:3.6.3
+    ports:
+      - "2181:2181"
+
