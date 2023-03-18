@@ -49,16 +49,27 @@ func main() {
 
 	// Declare a queue to which we will publish messages
 	q, err := ch.QueueDeclare(
-		"messages", // queue name
-		false,      // durable
-		false,      // delete when unused
-		false,      // exclusive
-		false,      // no-wait
-		nil,        // arguments
+		"messages",
+		true,  // durable
+		false, // autoDelete
+		false, // exclusive
+		false, // noWait
+		nil,
+		// amqp.Table{"x-confirm-true": true},
 	)
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	// Set publisher confirms on the channel
+	confirmsChan := make(chan amqp.Confirmation, 10)
+	// Enable publish confirmations
+	if err := ch.Confirm(false); err != nil {
+		close(confirmsChan)
+		fmt.Printf("Channel could not be put into confirm mode: %s\n", err)
+	}
+	confirms := ch.NotifyPublish(confirmsChan)
+	// defer confirmCleanup(ch, confirms)
 
 	// Loop through the result set and publish each id to the RabbitMQ queue
 	for rows.Next() {
@@ -68,17 +79,26 @@ func main() {
 		}
 
 		// Publish the message to the RabbitMQ queue
+		log.Printf("Sending message: %d to queue %s", id, q.Name)
 		err = ch.Publish(
 			"",     // exchange
 			q.Name, // routing key
-			false,  // mandatory
+			true,   // mandatory
 			false,  // immediate
 			amqp.Publishing{
-				ContentType: "text/plain",
-				Body:        []byte(fmt.Sprintf("%d", id)),
+				ContentType:  "text/plain",
+				Body:         []byte(fmt.Sprintf("%d", id)),
+				DeliveryMode: amqp.Persistent,
 			})
 		if err != nil {
 			log.Fatal(err)
+		}
+
+		// Wait for confirmation from the broker
+		log.Printf("Waiting for confirmation...")
+		confirm := <-confirms
+		if !confirm.Ack {
+			log.Fatalf("Failed to receive confirmation for message ID %d", id)
 		}
 
 		// Set the "is_sent" flag to true for the current id in the database
@@ -91,4 +111,16 @@ func main() {
 	if err := rows.Err(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// Cleanup function to wait for confirmations before closing the channel
+func confirmCleanup(ch *amqp.Channel, confirms <-chan amqp.Confirmation) {
+	log.Printf("Waiting for publisher confirms...")
+	for confirm := range confirms {
+		if !confirm.Ack {
+			log.Fatalf("Error delivering message: %v", confirm)
+		}
+	}
+	log.Printf("All messages delivered successfully")
+	ch.Close()
 }

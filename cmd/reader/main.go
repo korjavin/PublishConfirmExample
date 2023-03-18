@@ -22,22 +22,9 @@ func main() {
 	}
 	defer ch.Close()
 
-	// Declare the queue
-	queue, err := ch.QueueDeclare(
-		"messages", // Name of the queue
-		false,      // Not durable
-		false,      // Not auto-deleted
-		false,      // Not exclusive
-		false,      // No-wait
-		nil,        // Arguments
-	)
-	if err != nil {
-		log.Fatalf("Error declaring RabbitMQ queue: %v", err)
-	}
-
 	// Consume messages from the queue
 	msgs, err := ch.Consume(
-		queue.Name, // Name of the queue
+		"messages", // Name of the queue
 		"",         // Consumer tag
 		true,       // Auto-acknowledge messages
 		false,      // Exclusive
