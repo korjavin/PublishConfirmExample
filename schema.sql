@@ -1,3 +1,5 @@
+ALTER SYSTEM SET max_prepared_transactions = 100;
+
 CREATE TABLE messages (
     id SERIAL PRIMARY KEY,
     message TEXT,
